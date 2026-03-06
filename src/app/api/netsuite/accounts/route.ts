@@ -3,6 +3,8 @@ import { requireOrg } from "@/lib/session";
 import { db } from "@/lib/db";
 import { NetSuiteClient } from "@/lib/netsuite-client";
 
+export const dynamic = "force-dynamic";
+
 const CACHE_KEY = "accounts";
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 

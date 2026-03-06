@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/netsuite/item-mappings/import-csv
  * Upload a CSV with columns: amazon_sku, netsuite_item_id

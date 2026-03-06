@@ -3,6 +3,8 @@ import { requireOrg } from "@/lib/session";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/encryption";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/amazon/callback — Amazon redirects here after consent
 export async function GET(req: Request) {
   try {

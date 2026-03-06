@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/amazon/connections — list connections for this org
 export async function GET() {
   try {

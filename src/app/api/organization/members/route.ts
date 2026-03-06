@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrg, requireOwner } from "@/lib/session";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/organization/members — list all members
 export async function GET() {
   try {

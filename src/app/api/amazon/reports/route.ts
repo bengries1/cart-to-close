@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { AmazonSpApiClient } from "@/lib/amazon-sp-api";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/amazon/reports — list available settlement reports
 export async function GET(req: Request) {
   try {

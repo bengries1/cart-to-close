@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/netsuite/item-mappings
  * Returns all item mappings for this org.

@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { requireOrg, requireOwner } from "@/lib/session";
 import { sendInviteEmail } from "@/lib/email";
 
+export const dynamic = "force-dynamic";
+
 const sendInviteSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   role: z.enum(["admin", "member"]).default("member"),

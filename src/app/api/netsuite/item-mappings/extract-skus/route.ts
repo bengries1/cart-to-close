@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { parseSettlementReport } from "@/lib/amazon-sp-api";
 
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/netsuite/item-mappings/extract-skus
  * Upload a settlement report flat file and extract unique SKUs.

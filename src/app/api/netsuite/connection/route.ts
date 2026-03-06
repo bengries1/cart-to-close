@@ -7,6 +7,8 @@ import {
   type NetSuiteCredentials,
 } from "@/lib/netsuite";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/netsuite/connection — test & save NetSuite credentials
 export async function POST(req: Request) {
   try {

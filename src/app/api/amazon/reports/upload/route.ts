@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { parseSettlementReport } from "@/lib/amazon-sp-api";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/amazon/reports/upload — parse an uploaded settlement flat file
 export async function POST(req: Request) {
   try {
