@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────
+// Auth & Multi-Tenancy
+// ──────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  hashedPassword String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships OrganizationMember[]
+  accounts    Account[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members            OrganizationMember[]
+  invites            Invite[]
+  amazonConnections  AmazonConnection[]
+  netsuiteConnections NetSuiteConnection[]
+  feeMappings        FeeMapping[]
+  itemMappings       ItemMapping[]
+  syncJobs           SyncJob[]
+  syncConfig         SyncConfig?
+
+  @@map("organizations")
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  email          String
+  organizationId String
+  role           MemberRole   @default(member)
+  status         InviteStatus @default(pending)
+  token          String       @unique @default(cuid())
+  invitedBy      String?
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([email, organizationId])
+  @@index([email, status])
+  @@map("invites")
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  expired
+}
+
+model OrganizationMember {
+  id             String         @id @default(cuid())
+  userId         String
+  organizationId String
+  role           MemberRole     @default(member)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("organization_members")
+}
+
+enum MemberRole {
+  owner
+  admin
+  member
+}
+
+// ──────────────────────────────────────────
+// NextAuth.js Models
+// ──────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ──────────────────────────────────────────
+// Amazon SP-API Connection
+// ──────────────────────────────────────────
+
+model AmazonConnection {
+  id             String    @id @default(cuid())
+  organizationId String
+  sellerId       String
+  refreshToken   String    @db.Text
+  accessToken    String?   @db.Text
+  tokenExpiry    DateTime?
+  marketplace    String    @default("ATVPDKIKX0DER") // US marketplace ID
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, sellerId])
+  @@map("amazon_connections")
+}
+
+// ──────────────────────────────────────────
+// NetSuite Connection (OAuth 1.0a / TBA)
+// ──────────────────────────────────────────
+
+model NetSuiteConnection {
+  id             String   @id @default(cuid())
+  organizationId String
+  accountId      String
+  consumerKey    String   @db.Text
+  consumerSecret String   @db.Text
+  tokenId        String   @db.Text
+  tokenSecret    String   @db.Text
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, accountId])
+  @@map("netsuite_connections")
+}
+
+// ──────────────────────────────────────────
+// Fee Mapping (Amazon fee types → NetSuite GL accounts)
+// ──────────────────────────────────────────
+
+model FeeMapping {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  amazonFeeType      String   // FBAPerUnitFulfillmentFee, Commission, etc.
+  netSuiteAccountId  String
+  netSuiteAccountName String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, amazonFeeType])
+  @@map("fee_mappings")
+}
+
+// ──────────────────────────────────────────
+// Item Mapping (Amazon SKU → NetSuite Item)
+// ──────────────────────────────────────────
+
+model ItemMapping {
+  id               String   @id @default(cuid())
+  organizationId   String
+  amazonSku        String
+  amazonTitle      String?
+  netSuiteItemId   String
+  netSuiteItemName String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, amazonSku])
+  @@map("item_mappings")
+}
+
+// ──────────────────────────────────────────
+// Sync Jobs & Logs
+// ──────────────────────────────────────────
+
+model SyncJob {
+  id               String        @id @default(cuid())
+  organizationId   String
+  jobType          JobType
+  status           JobStatus     @default(pending)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  errorMessage     String?       @db.Text
+  recordsProcessed Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logs         SyncLog[]
+
+  @@index([organizationId, jobType])
+  @@index([status])
+  @@map("sync_jobs")
+}
+
+model SyncLog {
+  id              String        @id @default(cuid())
+  syncJobId       String
+  transactionType String        // SalesOrder, ItemFulfillment, Invoice, Payment, Refund
+  externalId      String?       // Amazon order ID or reference
+  netSuiteId      String?       // NetSuite internal ID after sync
+  status          LogStatus     @default(pending)
+  errorMessage    String?       @db.Text
+  rawData         Json?
+  createdAt       DateTime      @default(now())
+
+  syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+  @@index([syncJobId])
+  @@index([externalId])
+  @@map("sync_logs")
+}
+
+enum JobType {
+  settlement_report
+  sales_report
+  inventory_report
+  orders_to_netsuite
+  refunds_to_netsuite
+}
+
+enum JobStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+enum LogStatus {
+  pending
+  success
+  failed
+  skipped
+}
+
+// ──────────────────────────────────────────
+// NetSuite Data Cache
+// ──────────────────────────────────────────
+
+model NetSuiteCache {
+  id             String   @id @default(cuid())
+  organizationId String
+  cacheKey       String   // "accounts" | "items"
+  data           Json     // cached array of records
+  recordCount    Int      @default(0)
+  fetchedAt      DateTime @default(now()) // when data was fetched from NetSuite
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, cacheKey])
+  @@map("netsuite_cache")
+}
+
+// ──────────────────────────────────────────
+// Sync Configuration
+// ──────────────────────────────────────────
+
+model SyncConfig {
+  id                    String   @id @default(cuid())
+  organizationId        String   @unique
+  defaultCustomerId     String?  // NetSuite customer internal ID
+  defaultCustomerName   String?  // display label
+  defaultSubsidiaryId   String?  // NetSuite subsidiary internal ID
+  defaultSubsidiaryName String?
+  defaultPaymentMethodId   String?
+  defaultPaymentMethodName String?
+  defaultTaxCodeId      String?
+  defaultTaxCodeName    String?
+  invoiceGrouping       String   @default("per_order") // "per_order" | "per_settlement"
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("sync_configs")
+}
