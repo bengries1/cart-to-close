@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireOrg } from "@/lib/session";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/amazon/authorize — redirect to Amazon LWA consent page
 export async function GET() {
   try {
