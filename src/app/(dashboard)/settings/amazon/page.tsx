@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface AmazonConnection {
@@ -24,6 +24,14 @@ const MARKETPLACE_LABELS: Record<string, string> = {
 };
 
 export default function AmazonSettingsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>
+      <AmazonSettingsContent />
+    </Suspense>
+  );
+}
+
+function AmazonSettingsContent() {
   const searchParams = useSearchParams();
   const [connections, setConnections] = useState<AmazonConnection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
