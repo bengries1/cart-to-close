@@ -101,9 +101,43 @@ function AmazonSettingsContent() {
     }
   }
 
+  // Listen for messages from the OAuth popup window
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "amazon-oauth-callback") {
+        if (event.data.success) {
+          setSuccess("Amazon account connected successfully!");
+          setError("");
+          fetchConnections();
+        } else {
+          const messages: Record<string, string> = {
+            missing_params: "Authorization failed — missing parameters from Amazon.",
+            invalid_state: "Authorization failed — invalid state parameter.",
+            state_mismatch: "Authorization failed — organization mismatch.",
+            not_configured: "Amazon SP-API credentials are not configured on the server.",
+            token_exchange_failed: "Failed to exchange authorization code for tokens.",
+            unexpected: "An unexpected error occurred during authorization.",
+          };
+          setError(messages[event.data.error] || "Authorization failed.");
+        }
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [fetchConnections]);
+
   function handleConnect() {
-    // Redirect to the authorize endpoint — it will redirect to Amazon
-    window.location.href = "/api/amazon/authorize";
+    // Open Amazon auth in a popup window
+    const width = 600;
+    const height = 700;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    window.open(
+      "/api/amazon/authorize",
+      "amazon-oauth",
+      `width=${width},height=${height},left=${left},top=${top},popup=yes`
+    );
   }
 
   return (
@@ -136,7 +170,7 @@ function AmazonSettingsContent() {
           Connect a New Account
         </h2>
         <p className="text-sm text-gray-600 mb-4">
-          You&apos;ll be redirected to Amazon Seller Central to authorize access.
+          A new window will open to Amazon Seller Central to authorize access.
           Your tokens are stored encrypted with AES-256.
         </p>
         <button

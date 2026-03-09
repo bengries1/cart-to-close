@@ -5,6 +5,27 @@ import { encrypt } from "@/lib/encryption";
 
 export const dynamic = "force-dynamic";
 
+/** Return an HTML page that posts a message to the opener window and closes itself */
+function popupResponse(payload: { success: boolean; error?: string }) {
+  const html = `<!DOCTYPE html>
+<html><head><title>Amazon Authorization</title></head>
+<body>
+<p>Authorization complete. This window will close automatically.</p>
+<script>
+  if (window.opener) {
+    window.opener.postMessage(
+      { type: "amazon-oauth-callback", success: ${payload.success}${payload.error ? `, error: "${payload.error}"` : ""} },
+      window.location.origin
+    );
+  }
+  window.close();
+</script>
+</body></html>`;
+  return new NextResponse(html, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
 // GET /api/amazon/callback — Amazon redirects here after consent
 export async function GET(req: Request) {
   try {
@@ -14,12 +35,9 @@ export async function GET(req: Request) {
     const spApiOauthCode = searchParams.get("spapi_oauth_code");
     const state = searchParams.get("state");
     const sellingPartnerId = searchParams.get("selling_partner_id");
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
     if (!spApiOauthCode || !state || !sellingPartnerId) {
-      return NextResponse.redirect(
-        `${baseUrl}/settings/amazon?error=missing_params`
-      );
+      return popupResponse({ success: false, error: "missing_params" });
     }
 
     // Verify state contains this org's ID
@@ -29,25 +47,20 @@ export async function GET(req: Request) {
         Buffer.from(state, "base64url").toString("utf8")
       );
     } catch {
-      return NextResponse.redirect(
-        `${baseUrl}/settings/amazon?error=invalid_state`
-      );
+      return popupResponse({ success: false, error: "invalid_state" });
     }
 
     if (stateData.orgId !== session.user.organizationId) {
-      return NextResponse.redirect(
-        `${baseUrl}/settings/amazon?error=state_mismatch`
-      );
+      return popupResponse({ success: false, error: "state_mismatch" });
     }
 
     // Exchange the authorization code for refresh + access tokens
     const clientId = process.env.AMAZON_CLIENT_ID;
     const clientSecret = process.env.AMAZON_CLIENT_SECRET;
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
     if (!clientId || !clientSecret) {
-      return NextResponse.redirect(
-        `${baseUrl}/settings/amazon?error=not_configured`
-      );
+      return popupResponse({ success: false, error: "not_configured" });
     }
 
     const tokenRes = await fetch("https://api.amazon.com/auth/o2/token", {
@@ -68,9 +81,7 @@ export async function GET(req: Request) {
         tokenRes.status,
         await tokenRes.text()
       );
-      return NextResponse.redirect(
-        `${baseUrl}/settings/amazon?error=token_exchange_failed`
-      );
+      return popupResponse({ success: false, error: "token_exchange_failed" });
     }
 
     const tokenData = await tokenRes.json();
@@ -110,20 +121,12 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.redirect(
-      `${baseUrl}/settings/amazon?success=connected`
-    );
+    return popupResponse({ success: true });
   } catch (err: any) {
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    if (err.message === "UNAUTHORIZED") {
-      return NextResponse.redirect(`${baseUrl}/login`);
-    }
-    if (err.message === "NO_ORGANIZATION") {
-      return NextResponse.redirect(`${baseUrl}/onboarding`);
+    if (err.message === "UNAUTHORIZED" || err.message === "NO_ORGANIZATION") {
+      return popupResponse({ success: false, error: "unexpected" });
     }
     console.error("Amazon callback error:", err);
-    return NextResponse.redirect(
-      `${baseUrl}/settings/amazon?error=unexpected`
-    );
+    return popupResponse({ success: false, error: "unexpected" });
   }
 }
