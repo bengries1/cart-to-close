@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { parseOrderReport } from "@/lib/amazon-orders-parser";
 
 interface SavedOrderReport {
   id: string;
@@ -52,35 +53,34 @@ export default function AmazonOrdersPage() {
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/amazon/orders/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Failed to parse report");
+      if (file.size > 50 * 1024 * 1024) {
+        setError("File is too large (max 50 MB)");
         return;
       }
+
+      const text = await file.text();
+
+      if (!text.trim()) {
+        setError("File is empty");
+        return;
+      }
+
+      const report = parseOrderReport(text);
 
       try {
         sessionStorage.setItem(
           "uploadedOrderReport",
-          JSON.stringify(data.report)
+          JSON.stringify(report)
         );
-      } catch (storageErr) {
+      } catch {
         setError(
-          `Report parsed successfully (${data.report.orderCount} orders) but is too large to preview. Try saving directly or uploading a smaller date range.`
+          `Report parsed successfully (${report.orderCount} orders) but is too large to preview. Try uploading a smaller date range.`
         );
         return;
       }
       router.push("/amazon/orders/uploaded");
     } catch (err: any) {
-      setError(err?.message || "Failed to upload report");
+      setError(err?.message || "Failed to parse report");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

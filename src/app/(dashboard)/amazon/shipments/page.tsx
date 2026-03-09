@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { parseShipmentReport } from "@/lib/amazon-shipments-parser";
 
 interface SavedShipmentReport {
   id: string;
@@ -52,28 +53,34 @@ export default function AmazonShipmentsPage() {
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/amazon/shipments/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Failed to parse report");
+      if (file.size > 50 * 1024 * 1024) {
+        setError("File is too large (max 50 MB)");
         return;
       }
 
-      sessionStorage.setItem(
-        "uploadedShipmentReport",
-        JSON.stringify(data.report)
-      );
+      const text = await file.text();
+
+      if (!text.trim()) {
+        setError("File is empty");
+        return;
+      }
+
+      const report = parseShipmentReport(text);
+
+      try {
+        sessionStorage.setItem(
+          "uploadedShipmentReport",
+          JSON.stringify(report)
+        );
+      } catch {
+        setError(
+          `Report parsed successfully (${report.shipmentCount} shipments) but is too large to preview. Try uploading a smaller date range.`
+        );
+        return;
+      }
       router.push("/amazon/shipments/uploaded");
-    } catch {
-      setError("Failed to upload report");
+    } catch (err: any) {
+      setError(err?.message || "Failed to parse report");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
