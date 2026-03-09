@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { parseOrderReport } from "@/lib/amazon-orders-parser";
 
 interface SavedOrderReport {
@@ -24,6 +25,7 @@ export default function AmazonOrdersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [unmappedSkus, setUnmappedSkus] = useState<string[]>([]);
 
   const fetchSavedReports = useCallback(async () => {
     setIsLoading(true);
@@ -132,11 +134,20 @@ export default function AmazonOrdersPage() {
       }
     }
 
+    if (data.unmappedSkus?.length > 0) {
+      setUnmappedSkus(data.unmappedSkus);
+      try {
+        sessionStorage.setItem(
+          "pendingUnmappedSkus",
+          JSON.stringify(data.unmappedSkus)
+        );
+      } catch {
+        // non-critical
+      }
+    }
+
     setSuccess(
-      `Report saved: ${report.orderCount.toLocaleString()} orders, ${report.currency} ${report.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} total.` +
-      (data.unmappedSkus?.length > 0
-        ? ` ${data.unmappedSkus.length} unmapped SKUs found.`
-        : "")
+      `Report saved: ${report.orderCount.toLocaleString()} orders, ${report.currency} ${report.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} total.`
     );
     fetchSavedReports();
   }
@@ -234,8 +245,32 @@ export default function AmazonOrdersPage() {
       )}
 
       {success && (
-        <div className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-600">
-          {success}
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3">
+          <p className="text-sm text-green-600">{success}</p>
+          {unmappedSkus.length > 0 && (
+            <div className="mt-2 rounded-md bg-amber-50 border border-amber-200 p-3">
+              <p className="text-sm font-medium text-amber-800">
+                {unmappedSkus.length} unmapped SKU{unmappedSkus.length === 1 ? "" : "s"} found
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                These SKUs need to be mapped to NetSuite items before syncing.
+              </p>
+              <ul className="mt-1.5 list-disc list-inside">
+                {unmappedSkus.slice(0, 5).map((sku) => (
+                  <li key={sku} className="font-mono text-xs text-amber-700">{sku}</li>
+                ))}
+                {unmappedSkus.length > 5 && (
+                  <li className="text-xs text-amber-600">...and {unmappedSkus.length - 5} more</li>
+                )}
+              </ul>
+              <Link
+                href="/settings/item-mappings"
+                className="mt-2 inline-block rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+              >
+                Map Items Now
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

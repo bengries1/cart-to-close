@@ -273,7 +273,41 @@ export default function ItemMappingsPage() {
 
   useEffect(() => {
     fetchItems();
-    fetchMappings();
+    fetchMappings().then(() => {
+      // Check for pending unmapped SKUs from order/shipment save
+      try {
+        const pending = sessionStorage.getItem("pendingUnmappedSkus");
+        if (pending) {
+          sessionStorage.removeItem("pendingUnmappedSkus");
+          const skus: string[] = JSON.parse(pending);
+          if (skus.length > 0) {
+            setRows((prev) => {
+              const existing = new Set(prev.map((r) => r.sku));
+              const newRows: SkuRow[] = skus
+                .filter((sku) => !existing.has(sku))
+                .map((sku) => ({
+                  sku,
+                  title: null,
+                  orderCount: null,
+                  netSuiteItemId: "",
+                  netSuiteItemName: null,
+                  isSaved: false,
+                }));
+              if (newRows.length === 0) return prev;
+              return [...prev, ...newRows].sort((a, b) =>
+                a.sku.localeCompare(b.sku)
+              );
+            });
+            setStatusFilter("unmapped");
+            setToast(
+              `${skus.length} unmapped SKU${skus.length === 1 ? "" : "s"} added from report`
+            );
+          }
+        }
+      } catch {
+        // non-critical
+      }
+    });
   }, [fetchItems, fetchMappings]);
 
   // Auto-dismiss toast

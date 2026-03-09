@@ -236,10 +236,20 @@ export default function OrderReportPreviewPage() {
                 )}
               </ul>
               <button
-                onClick={() => router.push("/settings/item-mappings")}
-                className="mt-2 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem(
+                      "pendingUnmappedSkus",
+                      JSON.stringify(unmappedSkus)
+                    );
+                  } catch {
+                    // non-critical
+                  }
+                  router.push("/settings/item-mappings");
+                }}
+                className="mt-2 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
               >
-                Map Items
+                Map Items Now
               </button>
             </div>
           )}
