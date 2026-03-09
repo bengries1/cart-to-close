@@ -320,9 +320,10 @@ export class AmazonSpApiClient {
   }> {
     const isSandbox = process.env.AMAZON_SP_API_SANDBOX === "true";
 
-    // Sandbox only accepts exact predefined test cases — minimal params
+    // Sandbox only accepts exact predefined test cases
+    // Documented test case: reportTypes=GET_MERCHANT_LISTINGS_ALL_DATA&processingStatuses=DONE&pageSize=10
     const query: Record<string, string> = isSandbox
-      ? { reportTypes: "GET_FLAT_FILE_OPEN_LISTINGS_DATA" }
+      ? { reportTypes: "GET_MERCHANT_LISTINGS_ALL_DATA", processingStatuses: "DONE", pageSize: "10" }
       : {
           reportTypes: "GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2",
           pageSize: String(options?.pageSize || 10),
