@@ -61,7 +61,7 @@ export interface ShipmentReportSummary {
 }
 
 export function parseShipmentReport(rawText: string): ShipmentReportSummary {
-  const lines = rawText.trim().split("\n");
+  const lines = rawText.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
 
   if (lines.length < 2) {
     throw new Error("Shipment report has no data rows");

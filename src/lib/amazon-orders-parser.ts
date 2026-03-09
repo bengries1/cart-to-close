@@ -55,7 +55,7 @@ export interface OrderReportSummary {
 }
 
 export function parseOrderReport(rawText: string): OrderReportSummary {
-  const lines = rawText.trim().split("\n");
+  const lines = rawText.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
 
   if (lines.length < 2) {
     throw new Error("Order report has no data rows");
