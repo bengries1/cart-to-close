@@ -67,18 +67,17 @@ export default function AmazonOrdersPage() {
 
       const report = parseOrderReport(text);
 
+      // Try to store for preview; if too large, save directly to DB
       try {
         sessionStorage.setItem(
           "uploadedOrderReport",
           JSON.stringify(report)
         );
+        router.push("/amazon/orders/uploaded");
       } catch {
-        setError(
-          `Report parsed successfully (${report.orderCount} orders) but is too large to preview. Try uploading a smaller date range.`
-        );
-        return;
+        // Report too large for sessionStorage — save directly in batches
+        await saveReportInBatches(report);
       }
-      router.push("/amazon/orders/uploaded");
     } catch (err: any) {
       setError(err?.message || "Failed to parse report");
     } finally {
@@ -87,6 +86,59 @@ export default function AmazonOrdersPage() {
         fileInputRef.current.value = "";
       }
     }
+  }
+
+  async function saveReportInBatches(report: ReturnType<typeof parseOrderReport>) {
+    const BATCH_SIZE = 500;
+    const orders = report.orders;
+
+    // First batch: save with initial orders to create the report
+    const firstBatch = orders.slice(0, BATCH_SIZE);
+    const res = await fetch("/api/amazon/orders/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        report: {
+          ...report,
+          orders: firstBatch,
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Failed to save report");
+      return;
+    }
+
+    // If there are more orders, append them in batches
+    if (orders.length > BATCH_SIZE) {
+      for (let i = BATCH_SIZE; i < orders.length; i += BATCH_SIZE) {
+        const batch = orders.slice(i, i + BATCH_SIZE);
+        const appendRes = await fetch("/api/amazon/orders/append", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reportId: data.reportId,
+            orders: batch,
+          }),
+        });
+        if (!appendRes.ok) {
+          const appendData = await appendRes.json();
+          setError(appendData.error || `Failed to save batch at order ${i}`);
+          return;
+        }
+      }
+    }
+
+    setSuccess(
+      `Report saved: ${report.orderCount.toLocaleString()} orders, ${report.currency} ${report.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} total.` +
+      (data.unmappedSkus?.length > 0
+        ? ` ${data.unmappedSkus.length} unmapped SKUs found.`
+        : "")
+    );
+    fetchSavedReports();
   }
 
   async function handleDelete(id: string) {

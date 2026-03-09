@@ -67,18 +67,17 @@ export default function AmazonShipmentsPage() {
 
       const report = parseShipmentReport(text);
 
+      // Try to store for preview; if too large, save directly to DB
       try {
         sessionStorage.setItem(
           "uploadedShipmentReport",
           JSON.stringify(report)
         );
+        router.push("/amazon/shipments/uploaded");
       } catch {
-        setError(
-          `Report parsed successfully (${report.shipmentCount} shipments) but is too large to preview. Try uploading a smaller date range.`
-        );
-        return;
+        // Report too large for sessionStorage — save directly in batches
+        await saveReportInBatches(report);
       }
-      router.push("/amazon/shipments/uploaded");
     } catch (err: any) {
       setError(err?.message || "Failed to parse report");
     } finally {
@@ -87,6 +86,59 @@ export default function AmazonShipmentsPage() {
         fileInputRef.current.value = "";
       }
     }
+  }
+
+  async function saveReportInBatches(report: ReturnType<typeof parseShipmentReport>) {
+    const BATCH_SIZE = 500;
+    const shipments = report.shipments;
+
+    // First batch: save with initial shipments to create the report
+    const firstBatch = shipments.slice(0, BATCH_SIZE);
+    const res = await fetch("/api/amazon/shipments/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        report: {
+          ...report,
+          shipments: firstBatch,
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Failed to save report");
+      return;
+    }
+
+    // If there are more shipments, append them in batches
+    if (shipments.length > BATCH_SIZE) {
+      for (let i = BATCH_SIZE; i < shipments.length; i += BATCH_SIZE) {
+        const batch = shipments.slice(i, i + BATCH_SIZE);
+        const appendRes = await fetch("/api/amazon/shipments/append", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reportId: data.reportId,
+            shipments: batch,
+          }),
+        });
+        if (!appendRes.ok) {
+          const appendData = await appendRes.json();
+          setError(appendData.error || `Failed to save batch at shipment ${i}`);
+          return;
+        }
+      }
+    }
+
+    setSuccess(
+      `Report saved: ${report.shipmentCount.toLocaleString()} shipments, ${report.currency} ${report.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} total.` +
+      (data.unmappedSkus?.length > 0
+        ? ` ${data.unmappedSkus.length} unmapped SKUs found.`
+        : "")
+    );
+    fetchSavedReports();
   }
 
   async function handleDelete(id: string) {
