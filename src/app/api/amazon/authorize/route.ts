@@ -9,10 +9,10 @@ export async function GET() {
   try {
     const session = await requireOrg();
 
-    const clientId = process.env.AMAZON_CLIENT_ID;
-    if (!clientId) {
+    const appId = process.env.AMAZON_APP_ID;
+    if (!appId) {
       return NextResponse.json(
-        { error: "Amazon SP-API is not configured" },
+        { error: "Amazon SP-API is not configured — AMAZON_APP_ID is missing" },
         { status: 500 }
       );
     }
@@ -27,7 +27,7 @@ export async function GET() {
     ).toString("base64url");
 
     const params = new URLSearchParams({
-      application_id: clientId,
+      application_id: appId,
       state,
       redirect_uri: redirectUri,
     });
