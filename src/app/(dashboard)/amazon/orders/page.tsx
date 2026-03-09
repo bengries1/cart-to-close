@@ -67,13 +67,20 @@ export default function AmazonOrdersPage() {
         return;
       }
 
-      sessionStorage.setItem(
-        "uploadedOrderReport",
-        JSON.stringify(data.report)
-      );
+      try {
+        sessionStorage.setItem(
+          "uploadedOrderReport",
+          JSON.stringify(data.report)
+        );
+      } catch (storageErr) {
+        setError(
+          `Report parsed successfully (${data.report.orderCount} orders) but is too large to preview. Try saving directly or uploading a smaller date range.`
+        );
+        return;
+      }
       router.push("/amazon/orders/uploaded");
-    } catch {
-      setError("Failed to upload report");
+    } catch (err: any) {
+      setError(err?.message || "Failed to upload report");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
