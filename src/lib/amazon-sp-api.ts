@@ -320,10 +320,13 @@ export class AmazonSpApiClient {
   }> {
     const isSandbox = process.env.AMAZON_SP_API_SANDBOX === "true";
 
-    // Sandbox only accepts exact predefined test cases
-    // Documented test case: reportTypes=GET_MERCHANT_LISTINGS_ALL_DATA&processingStatuses=DONE&pageSize=10
+    // Sandbox requires exact test case params from the OpenAPI x-amzn-api-sandbox spec:
+    // reportTypes=FEE_DISCOUNTS_REPORT,GET_AFN_INVENTORY_DATA&processingStatuses=IN_QUEUE,IN_PROGRESS
     const query: Record<string, string> = isSandbox
-      ? { reportTypes: "GET_MERCHANT_LISTINGS_ALL_DATA", processingStatuses: "DONE", pageSize: "10" }
+      ? {
+          reportTypes: "FEE_DISCOUNTS_REPORT,GET_AFN_INVENTORY_DATA",
+          processingStatuses: "IN_QUEUE,IN_PROGRESS",
+        }
       : {
           reportTypes: "GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2",
           pageSize: String(options?.pageSize || 10),
