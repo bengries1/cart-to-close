@@ -38,7 +38,14 @@ const AMAZON_FEE_TYPES = [
   { key: "Other", label: "Other / Unclassified", category: "Other" },
 ] as const;
 
-const CATEGORIES = Array.from(new Set(AMAZON_FEE_TYPES.map((f) => f.category)));
+const STANDARD_KEYS: Set<string> = new Set(AMAZON_FEE_TYPES.map((f) => f.key));
+
+interface FeeTypeEntry {
+  key: string;
+  label: string;
+  category: string;
+  isDiscovered?: boolean;
+}
 
 // ──────────────────────────────────────────
 // Types
@@ -65,6 +72,9 @@ export default function FeeMappingsPage() {
 
   const [savedMappings, setSavedMappings] = useState<SavedMapping[]>([]);
   const [isLoadingMappings, setIsLoadingMappings] = useState(true);
+
+  // Discovered fee types from imported settlement reports
+  const [discoveredFeeTypes, setDiscoveredFeeTypes] = useState<string[]>([]);
 
   // Current selections: feeType → accountId
   const [selections, setSelections] = useState<Record<string, string>>({});
@@ -131,10 +141,27 @@ export default function FeeMappingsPage() {
     }
   }, []);
 
+  const fetchDiscoveredFeeTypes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/amazon/fee-types");
+      if (res.ok) {
+        const data = await res.json();
+        // Filter out any that are already in the standard list
+        const novel = (data.feeTypes || []).filter(
+          (ft: string) => !STANDARD_KEYS.has(ft)
+        );
+        setDiscoveredFeeTypes(novel);
+      }
+    } catch {
+      // non-blocking
+    }
+  }, []);
+
   useEffect(() => {
     fetchAccounts();
     fetchMappings();
-  }, [fetchAccounts, fetchMappings]);
+    fetchDiscoveredFeeTypes();
+  }, [fetchAccounts, fetchMappings, fetchDiscoveredFeeTypes]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -211,10 +238,23 @@ export default function FeeMappingsPage() {
     return saved!.netSuiteAccountId !== current;
   }
 
-  const anyChanges = AMAZON_FEE_TYPES.some((f) => hasChanged(f.key));
+  // Build combined fee type list: standard + discovered
+  const allFeeTypes: FeeTypeEntry[] = [
+    ...AMAZON_FEE_TYPES.map((f) => ({ ...f, isDiscovered: false })),
+    ...discoveredFeeTypes.map((key) => ({
+      key,
+      label: key,
+      category: "Discovered from Reports",
+      isDiscovered: true,
+    })),
+  ];
+
+  const allCategories = Array.from(new Set(allFeeTypes.map((f) => f.category)));
+
+  const anyChanges = allFeeTypes.some((f) => hasChanged(f.key));
 
   // Filter fee types
-  const filteredFeeTypes = AMAZON_FEE_TYPES.filter((f) => {
+  const filteredFeeTypes = allFeeTypes.filter((f) => {
     if (categoryFilter !== "All" && f.category !== categoryFilter) return false;
     if (searchFilter) {
       const q = searchFilter.toLowerCase();
@@ -227,8 +267,12 @@ export default function FeeMappingsPage() {
     return true;
   });
 
-  const unmappedCount = AMAZON_FEE_TYPES.filter(
+  const unmappedCount = allFeeTypes.filter(
     (f) => !selections[f.key]
+  ).length;
+
+  const discoveredUnmappedCount = discoveredFeeTypes.filter(
+    (key) => !selections[key]
   ).length;
 
   if (isLoadingAccounts || isLoadingMappings) {
@@ -266,12 +310,29 @@ export default function FeeMappingsPage() {
         </div>
       )}
 
+      {/* Discovered fee types banner */}
+      {discoveredUnmappedCount > 0 && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm font-medium text-amber-800">
+            {discoveredUnmappedCount} new fee type
+            {discoveredUnmappedCount === 1 ? "" : "s"} discovered from imported
+            settlement reports need{discoveredUnmappedCount === 1 ? "s" : ""} mapping.
+          </p>
+          <button
+            onClick={() => setCategoryFilter("Discovered from Reports")}
+            className="mt-1 text-xs font-medium text-amber-700 underline hover:text-amber-900"
+          >
+            Show discovered fee types
+          </button>
+        </div>
+      )}
+
       {/* Summary bar */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <span>
-            {AMAZON_FEE_TYPES.length - unmappedCount} of{" "}
-            {AMAZON_FEE_TYPES.length} mapped
+            {allFeeTypes.length - unmappedCount} of{" "}
+            {allFeeTypes.length} mapped
           </span>
           {unmappedCount > 0 && (
             <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
@@ -317,7 +378,7 @@ export default function FeeMappingsPage() {
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="All">All Categories</option>
-          {CATEGORIES.map((cat) => (
+          {allCategories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>
@@ -389,12 +450,19 @@ export default function FeeMappingsPage() {
 
                     {/* Fee type */}
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-gray-900 flex items-center gap-2">
                         {fee.label}
+                        {fee.isDiscovered && (
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            New
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-400 font-mono">
-                        {fee.key}
-                      </div>
+                      {fee.key !== fee.label && (
+                        <div className="text-xs text-gray-400 font-mono">
+                          {fee.key}
+                        </div>
+                      )}
                     </td>
 
                     {/* Category */}

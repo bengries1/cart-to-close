@@ -15,6 +15,16 @@ const NAV_ITEMS = [
     icon: DocumentIcon,
   },
   {
+    label: "Orders",
+    href: "/amazon/orders",
+    icon: DocumentIcon,
+  },
+  {
+    label: "Shipments",
+    href: "/amazon/shipments",
+    icon: DocumentIcon,
+  },
+  {
     heading: "Settings",
   },
   {

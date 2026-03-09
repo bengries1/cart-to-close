@@ -13,10 +13,25 @@ interface Report {
   reportDocumentId?: string;
 }
 
+interface SavedReport {
+  id: string;
+  settlementId: string | null;
+  settlementStartDate: string | null;
+  settlementEndDate: string | null;
+  depositDate: string | null;
+  totalAmount: number;
+  currency: string;
+  transactionCount: number;
+  source: string;
+  createdAt: string;
+}
+
 export default function AmazonReportsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reports, setReports] = useState<Report[]>([]);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(true);
   const [nextToken, setNextToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,9 +69,25 @@ export default function AmazonReportsPage() {
     }
   }, []);
 
+  const fetchSavedReports = useCallback(async () => {
+    setIsLoadingSaved(true);
+    try {
+      const res = await fetch("/api/amazon/reports/saved");
+      if (res.ok) {
+        const data = await res.json();
+        setSavedReports(data.reports || []);
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setIsLoadingSaved(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchReports();
-  }, [fetchReports]);
+    fetchSavedReports();
+  }, [fetchReports, fetchSavedReports]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -99,13 +130,37 @@ export default function AmazonReportsPage() {
     }
   }
 
-  function formatDate(iso?: string) {
+  async function handleDeleteSaved(id: string, settlementId: string | null) {
+    if (!confirm(`Delete saved report${settlementId ? ` #${settlementId}` : ""}?`)) return;
+    setError("");
+    try {
+      const res = await fetch(`/api/amazon/reports/saved?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to delete report");
+        return;
+      }
+      setSuccess("Report deleted.");
+      fetchSavedReports();
+    } catch {
+      setError("Failed to delete report");
+    }
+  }
+
+  function formatDate(iso?: string | null) {
     if (!iso) return "\u2014";
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
+  }
+
+  function formatCurrency(amount: number, currency?: string) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+    }).format(amount);
   }
 
   const statusColor: Record<string, string> = {
@@ -169,6 +224,79 @@ export default function AmazonReportsPage() {
             Tab-delimited flat file, max 10 MB
           </span>
         </div>
+      </div>
+
+      {/* Saved Reports */}
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Saved Reports ({savedReports.length})
+          </h2>
+        </div>
+
+        {isLoadingSaved ? (
+          <div className="px-6 py-8 text-center text-sm text-gray-500">
+            Loading...
+          </div>
+        ) : savedReports.length === 0 ? (
+          <div className="px-6 py-8 text-center text-sm text-gray-500">
+            No saved reports yet. Upload a report above, then save it from the
+            preview page.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-6 py-3">Settlement ID</th>
+                  <th className="px-6 py-3">Period</th>
+                  <th className="px-6 py-3">Deposit Date</th>
+                  <th className="px-6 py-3 text-right">Net Amount</th>
+                  <th className="px-6 py-3 text-right">Transactions</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {savedReports.map((sr) => (
+                  <tr key={sr.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-mono text-xs text-gray-700">
+                      {sr.settlementId || "\u2014"}
+                    </td>
+                    <td className="px-6 py-4 text-gray-900">
+                      {formatDate(sr.settlementStartDate)} &mdash;{" "}
+                      {formatDate(sr.settlementEndDate)}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {formatDate(sr.depositDate)}
+                    </td>
+                    <td
+                      className={`px-6 py-4 text-right font-medium ${
+                        sr.totalAmount >= 0
+                          ? "text-green-700"
+                          : "text-red-700"
+                      }`}
+                    >
+                      {formatCurrency(sr.totalAmount, sr.currency)}
+                    </td>
+                    <td className="px-6 py-4 text-right text-gray-500">
+                      {sr.transactionCount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() =>
+                          handleDeleteSaved(sr.id, sr.settlementId)
+                        }
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Reports Table */}

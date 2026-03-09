@@ -40,6 +40,9 @@ model Organization {
   itemMappings       ItemMapping[]
   syncJobs           SyncJob[]
   syncConfig         SyncConfig?
+  settlementReports  SettlementReport[]
+  orderReports       OrderReport[]
+  shipmentReports    ShipmentReport[]
 
   @@map("organizations")
 }
@@ -215,6 +218,84 @@ model ItemMapping {
 
   @@unique([organizationId, amazonSku])
   @@map("item_mappings")
+}
+
+// ──────────────────────────────────────────
+// Settlement Reports (saved from uploads or API)
+// ──────────────────────────────────────────
+
+model SettlementReport {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  settlementId        String?
+  settlementStartDate String?
+  settlementEndDate   String?
+  depositDate         String?
+  totalAmount         Float    @default(0)
+  currency            String   @default("USD")
+  transactionCount    Int      @default(0)
+  fees                Json     // SettlementFeeSummary[]
+  transactions        Json     // SettlementTransaction[]
+  source              String   @default("upload") // "upload" | "api"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, settlementId])
+  @@map("settlement_reports")
+}
+
+// ──────────────────────────────────────────
+// Order Reports (Amazon orders → NetSuite Sales Orders)
+// ──────────────────────────────────────────
+
+model OrderReport {
+  id               String   @id @default(cuid())
+  organizationId   String
+  reportDate       String?  // date range label
+  startDate        String?
+  endDate          String?
+  orderCount       Int      @default(0)
+  totalAmount      Float    @default(0)
+  currency         String   @default("USD")
+  orders           Json     // ParsedAmazonOrder[]
+  syncStatus       String   @default("pending") // "pending" | "syncing" | "synced" | "partial" | "failed"
+  syncJobId        String?
+  source           String   @default("upload")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("order_reports")
+}
+
+// ──────────────────────────────────────────
+// Shipment Reports (Amazon shipments → NetSuite Invoices)
+// ──────────────────────────────────────────
+
+model ShipmentReport {
+  id               String   @id @default(cuid())
+  organizationId   String
+  reportDate       String?
+  startDate        String?
+  endDate          String?
+  shipmentCount    Int      @default(0)
+  totalAmount      Float    @default(0)
+  currency         String   @default("USD")
+  shipments        Json     // ParsedAmazonShipment[]
+  syncStatus       String   @default("pending") // "pending" | "syncing" | "synced" | "partial" | "failed"
+  syncJobId        String?
+  source           String   @default("upload")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("shipment_reports")
 }
 
 // ──────────────────────────────────────────

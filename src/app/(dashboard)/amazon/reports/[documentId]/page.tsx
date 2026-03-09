@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface SettlementTransaction {
@@ -46,11 +46,15 @@ const TRANSACTIONS_PAGE_SIZE = 50;
 
 export default function ReportPreviewPage() {
   const params = useParams();
+  const router = useRouter();
   const documentId = params.documentId as string;
 
   const [report, setReport] = useState<SettlementReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState("");
+  const [newFeeTypes, setNewFeeTypes] = useState<string[]>([]);
 
   // Transaction table state
   const [txPage, setTxPage] = useState(1);
@@ -205,6 +209,38 @@ export default function ReportPreviewPage() {
     );
   }
 
+  async function handleSave() {
+    if (!report) return;
+    setIsSaving(true);
+    setError("");
+    setSaveSuccess("");
+    setNewFeeTypes([]);
+
+    try {
+      const res = await fetch("/api/amazon/reports/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to save report");
+        return;
+      }
+
+      setSaveSuccess("Report saved to your account.");
+      if (data.newFeeTypes && data.newFeeTypes.length > 0) {
+        setNewFeeTypes(data.newFeeTypes);
+      }
+    } catch {
+      setError("Failed to save report");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (!report) return null;
 
   return (
@@ -226,7 +262,41 @@ export default function ReportPreviewPage() {
             {formatDate(report.settlementEndDate)}
           </p>
         </div>
+        {!saveSuccess && (
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSaving ? "Saving..." : "Save to Account"}
+          </button>
+        )}
       </div>
+
+      {/* Save success + new fee types banner */}
+      {saveSuccess && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-4">
+          <p className="text-sm font-medium text-green-700">{saveSuccess}</p>
+          {newFeeTypes.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm text-green-800">
+                {newFeeTypes.length} new fee type{newFeeTypes.length === 1 ? "" : "s"} discovered:
+              </p>
+              <ul className="mt-1 list-disc list-inside text-sm text-green-700">
+                {newFeeTypes.map((ft) => (
+                  <li key={ft} className="font-mono text-xs">{ft}</li>
+                ))}
+              </ul>
+              <button
+                onClick={() => router.push("/settings/fee-mappings")}
+                className="mt-2 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+              >
+                Map New Fee Types
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
