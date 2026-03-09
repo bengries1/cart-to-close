@@ -1,12 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 
 export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-lg bg-white p-8 shadow">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-48 rounded bg-gray-200" />
+            <div className="h-4 w-64 rounded bg-gray-200" />
+          </div>
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite") || "";
