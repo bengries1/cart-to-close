@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     }
     console.error("List settlement reports error:", err);
     return NextResponse.json(
-      { error: "Failed to fetch reports" },
+      { error: err.message || "Failed to fetch reports" },
       { status: 500 }
     );
   }

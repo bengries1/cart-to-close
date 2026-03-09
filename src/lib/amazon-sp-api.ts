@@ -80,7 +80,10 @@ interface ReportDocument {
 // Amazon SP-API Client
 // ──────────────────────────────────────────
 
-const SP_API_BASE = "https://sellingpartnerapi-na.amazon.com";
+const SP_API_BASE =
+  process.env.AMAZON_SP_API_SANDBOX === "true"
+    ? "https://sandbox.sellingpartnerapi-na.amazon.com"
+    : "https://sellingpartnerapi-na.amazon.com";
 const TOKEN_URL = "https://api.amazon.com/auth/o2/token";
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh 5 min before expiry
 
