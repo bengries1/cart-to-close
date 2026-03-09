@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/session";
 import { db } from "@/lib/db";
+import { encrypt } from "@/lib/encryption";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,59 @@ export async function GET() {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
     console.error("List Amazon connections error:", err);
+    return NextResponse.json(
+      { error: "Something went wrong" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/amazon/connections — manual token entry (for draft/sandbox apps)
+export async function POST(req: Request) {
+  try {
+    const session = await requireOrg();
+    const body = await req.json();
+    const { sellerId, refreshToken } = body;
+
+    if (!sellerId || !refreshToken) {
+      return NextResponse.json(
+        { error: "Seller ID and Refresh Token are required" },
+        { status: 400 }
+      );
+    }
+
+    const encryptedRefreshToken = encrypt(refreshToken);
+
+    await db.amazonConnection.upsert({
+      where: {
+        organizationId_sellerId: {
+          organizationId: session.user.organizationId,
+          sellerId,
+        },
+      },
+      update: {
+        refreshToken: encryptedRefreshToken,
+        accessToken: null,
+        tokenExpiry: null,
+        isActive: true,
+      },
+      create: {
+        organizationId: session.user.organizationId,
+        sellerId,
+        refreshToken: encryptedRefreshToken,
+        isActive: true,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    if (err.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (err.message === "NO_ORGANIZATION") {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+    console.error("Manual Amazon connection error:", err);
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 }
