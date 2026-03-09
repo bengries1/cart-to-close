@@ -318,14 +318,21 @@ export class AmazonSpApiClient {
     }>;
     nextToken?: string;
   }> {
-    const query: Record<string, string> = {
-      reportTypes: "GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2",
-      pageSize: String(options?.pageSize || 10),
-    };
+    const isSandbox = process.env.AMAZON_SP_API_SANDBOX === "true";
 
-    if (options?.createdSince) query.createdSince = options.createdSince;
-    if (options?.createdUntil) query.createdUntil = options.createdUntil;
-    if (options?.nextToken) query.nextToken = options.nextToken;
+    // Sandbox only accepts exact predefined test cases — minimal params
+    const query: Record<string, string> = isSandbox
+      ? { reportTypes: "GET_FLAT_FILE_OPEN_LISTINGS_DATA" }
+      : {
+          reportTypes: "GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2",
+          pageSize: String(options?.pageSize || 10),
+        };
+
+    if (!isSandbox) {
+      if (options?.createdSince) query.createdSince = options.createdSince;
+      if (options?.createdUntil) query.createdUntil = options.createdUntil;
+      if (options?.nextToken) query.nextToken = options.nextToken;
+    }
 
     const data = await this.get<any>("/reports/2021-06-30/reports", query);
 
