@@ -209,6 +209,7 @@ export class AmazonSpApiClient {
     }
 
     const data: TokenResponse = await res.json();
+    console.log("Token refresh succeeded, expires_in:", data.expires_in, "SP_API_BASE:", SP_API_BASE);
 
     this.accessToken = data.access_token;
     this.tokenExpiry = new Date(Date.now() + data.expires_in * 1000);
@@ -253,10 +254,11 @@ export class AmazonSpApiClient {
       url += `?${params.toString()}`;
     }
 
+    console.log(`SP-API ${method} ${url}`);
+
     const res = await fetch(url, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         "x-amz-access-token": token,
       },
