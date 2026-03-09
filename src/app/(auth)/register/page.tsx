@@ -1,19 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite") || "";
+  const inviteEmail = searchParams.get("email") || "";
+
   const [formData, setFormData] = useState<SignupInput>({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+
+  // Pre-fill email from invite link
+  useEffect(() => {
+    if (inviteEmail) {
+      setFormData((prev) => ({ ...prev, email: inviteEmail }));
+    }
+  }, [inviteEmail]);
   const [errors, setErrors] = useState<Partial<Record<keyof SignupInput, string>>>({});
   const [generalError, setGeneralError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +60,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, inviteToken }),
       });
 
       const data = await res.json();
@@ -86,10 +97,18 @@ export default function RegisterPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Sign up to start syncing Amazon data with NetSuite
+          {inviteToken
+            ? "You've been invited! Create your account to get started."
+            : "Registration is invite-only. Please use an invite link to sign up."}
         </p>
       </div>
 
+      {!inviteToken ? (
+        <div className="rounded-md bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+          <p className="font-medium">Invite required</p>
+          <p className="mt-1">Contact your organization admin to request an invite link.</p>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
         {generalError && (
           <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
@@ -129,7 +148,10 @@ export default function RegisterPage() {
             autoComplete="email"
             value={formData.email}
             onChange={handleChange}
+            readOnly={!!inviteEmail}
             className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              inviteEmail ? "bg-gray-50 text-gray-500" : ""
+            } ${
               errors.email ? "border-red-300" : "border-gray-300"
             }`}
             placeholder="you@example.com"
@@ -189,6 +211,7 @@ export default function RegisterPage() {
           {isLoading ? "Creating account..." : "Create Account"}
         </button>
       </form>
+      )}
 
       <p className="mt-4 text-center text-sm text-gray-600">
         Already have an account?{" "}

@@ -15,8 +15,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Amazon NetSuite Sync",
-  description: "Sync Amazon Seller Central data with NetSuite ERP",
+  title: "Cart To Close — Amazon to NetSuite, automated",
+  description:
+    "Cart To Close syncs your Amazon Seller Central data with NetSuite — settlements, orders, shipments, and fee reconciliation. Built by accountants, for accountants.",
 };
 
 export default function RootLayout({

@@ -125,11 +125,8 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-gray-600">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-          Sign up
-        </Link>
+      <p className="mt-4 text-center text-sm text-gray-500">
+        Registration is invite-only. Contact your organization admin for access.
       </p>
     </div>
   );
