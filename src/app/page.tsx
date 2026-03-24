@@ -7,7 +7,7 @@ export default function LandingPage() {
       {/* Nav */}
       <header className="border-b border-gray-100">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Image src="/logo-header.png" alt="Cart To Close" width={200} height={50} className="h-10 w-auto" priority />
+          <Image src="/logo-header.png" alt="Cart To Close" width={250} height={62} className="h-[50px] w-auto" priority />
           <div className="flex items-center gap-6">
             <Link
               href="/support"
