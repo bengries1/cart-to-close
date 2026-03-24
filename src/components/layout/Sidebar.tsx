@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -73,8 +74,8 @@ export default function Sidebar() {
 
   return (
     <aside className="flex w-64 flex-col border-r border-gray-200 bg-white">
-      <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-6">
-        <span className="text-lg font-bold text-gray-900">Amazon &rarr; NetSuite</span>
+      <div className="flex h-16 items-center border-b border-gray-200 px-4">
+        <Image src="/logo.png" alt="Cart to Close" width={180} height={48} className="h-10 w-auto" priority />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">

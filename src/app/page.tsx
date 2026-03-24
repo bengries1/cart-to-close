@@ -7,12 +7,20 @@ export default function LandingPage() {
       <header className="border-b border-gray-100">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <span className="text-xl font-bold text-gray-900">Cart To Close</span>
-          <Link
-            href="/login"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Sign In
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link
+              href="/support"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900"
+            >
+              Support
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -32,7 +40,7 @@ export default function LandingPage() {
         </p>
         <div className="mt-10 flex items-center justify-center gap-4">
           <Link
-            href="/login"
+            href="/signup"
             className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
           >
             Get Started
@@ -113,6 +121,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="border-t border-gray-100 bg-gray-50 py-24">
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+            Simple, transparent pricing
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-gray-600">
+            One plan. Everything included. No hidden fees or per-transaction charges.
+          </p>
+
+          <div className="mx-auto mt-12 max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">
+              Standard
+            </p>
+            <div className="mt-4 flex items-baseline justify-center gap-1">
+              <span className="text-sm text-gray-500">Starting at</span>
+            </div>
+            <div className="mt-1 flex items-baseline justify-center gap-1">
+              <span className="text-5xl font-bold text-gray-900">$49</span>
+              <span className="text-lg text-gray-500">.99/mo</span>
+            </div>
+            <ul className="mt-8 space-y-3 text-left text-sm text-gray-600">
+              <PricingCheck text="Settlement report import & reconciliation" />
+              <PricingCheck text="Order & shipment sync to NetSuite" />
+              <PricingCheck text="Automatic fee-to-GL mapping" />
+              <PricingCheck text="SKU-to-item mapping" />
+              <PricingCheck text="Multi-org & team access" />
+              <PricingCheck text="Email support" />
+            </ul>
+            <Link
+              href="/signup"
+              className="mt-8 block w-full rounded-md bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            >
+              Get Started
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="border-t border-gray-100 bg-blue-600 py-16">
         <div className="mx-auto max-w-4xl px-6 text-center">
@@ -120,13 +167,18 @@ export default function LandingPage() {
             Ready to automate your Amazon accounting?
           </h2>
           <p className="mt-4 text-blue-100">
-            Cart To Close is currently available by invitation. Sign in or
-            contact us to get started.
+            Start syncing your Amazon data to NetSuite today.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <Link
+              href="/signup"
+              className="rounded-md bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-sm hover:bg-blue-50"
+            >
+              Get Started
+            </Link>
             <Link
               href="/login"
-              className="rounded-md bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-sm hover:bg-blue-50"
+              className="rounded-md border border-blue-300 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Sign In
             </Link>
@@ -156,6 +208,17 @@ function FeatureCard({
       <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
       <p className="mt-2 text-sm text-gray-600">{description}</p>
     </div>
+  );
+}
+
+function PricingCheck({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-2">
+      <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      </svg>
+      {text}
+    </li>
   );
 }
 
