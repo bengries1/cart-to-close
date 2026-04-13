@@ -14,6 +14,7 @@ interface SavedShipmentReport {
   totalAmount: number;
   currency: string;
   syncStatus: string;
+  source: string;
   createdAt: string;
 }
 
@@ -171,6 +172,56 @@ export default function AmazonShipmentsPage() {
     }
   }
 
+  // Pull from Amazon state
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullStartDate, setPullStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [pullEndDate, setPullEndDate] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
+
+  async function handlePull() {
+    setIsPulling(true);
+    setError("");
+    setSuccess("");
+    setUnmappedSkus([]);
+
+    try {
+      const res = await fetch("/api/amazon/shipments/pull", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: pullStartDate,
+          endDate: pullEndDate,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to pull shipment report");
+        return;
+      }
+
+      setSuccess(
+        `Pulled ${data.shipmentCount.toLocaleString()} shipments (${data.currency} ${data.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}) from Amazon.`
+      );
+
+      if (data.unmappedSkus?.length > 0) {
+        setUnmappedSkus(data.unmappedSkus);
+      }
+
+      fetchSavedReports();
+    } catch {
+      setError("Failed to pull shipment report from Amazon");
+    } finally {
+      setIsPulling(false);
+    }
+  }
+
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
   async function handleSync(reportId: string) {
@@ -307,6 +358,57 @@ export default function AmazonShipmentsPage() {
         </div>
       </div>
 
+      {/* Pull from Amazon */}
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Pull from Amazon
+        </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Pull the &quot;Amazon Fulfilled Shipments&quot; report directly from
+          Amazon via the SP-API. Reports are saved for review and will not
+          auto-sync to NetSuite.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={pullStartDate}
+              onChange={(e) => setPullStartDate(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              disabled={isPulling}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              End Date
+            </label>
+            <input
+              type="date"
+              value={pullEndDate}
+              onChange={(e) => setPullEndDate(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              disabled={isPulling}
+            />
+          </div>
+          <button
+            onClick={handlePull}
+            disabled={isPulling || !pullStartDate || !pullEndDate}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPulling ? "Pulling from Amazon..." : "Pull Shipments"}
+          </button>
+        </div>
+        {isPulling && (
+          <p className="mt-3 text-xs text-gray-500">
+            Requesting report from Amazon and waiting for it to generate. This
+            may take a minute or two...
+          </p>
+        )}
+      </div>
+
       {/* Saved Reports */}
       <div className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-6 py-4">
@@ -332,6 +434,7 @@ export default function AmazonShipmentsPage() {
                   <th className="px-6 py-3">Period</th>
                   <th className="px-6 py-3 text-right">Shipments</th>
                   <th className="px-6 py-3 text-right">Total</th>
+                  <th className="px-6 py-3">Source</th>
                   <th className="px-6 py-3">Sync Status</th>
                   <th className="px-6 py-3">Imported</th>
                   <th className="px-6 py-3 text-right">Actions</th>
@@ -348,6 +451,17 @@ export default function AmazonShipmentsPage() {
                     </td>
                     <td className="px-6 py-4 text-right font-medium text-gray-900">
                       {formatCurrency(r.totalAmount, r.currency)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          r.source === "api"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {r.source === "api" ? "Amazon API" : "Upload"}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span

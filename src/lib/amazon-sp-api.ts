@@ -390,6 +390,94 @@ export class AmazonSpApiClient {
   }
 
   // ──────────────────────────────────────────
+  // Reports API — Fulfilled Shipments
+  // ──────────────────────────────────────────
+
+  /**
+   * Request Amazon to generate a fulfilled-shipments report for a date range.
+   * Returns a reportId that must be polled until processing completes.
+   */
+  async createShipmentReport(options: {
+    startDate: string; // ISO date
+    endDate: string;
+  }): Promise<string> {
+    const data = await this.post<any>("/reports/2021-06-30/reports", {
+      reportType: "GET_AMAZON_FULFILLED_SHIPMENTS_DATA_GENERAL",
+      dataStartTime: options.startDate,
+      dataEndTime: options.endDate,
+      marketplaceIds: [this.marketplace],
+    });
+
+    return data.reportId;
+  }
+
+  /**
+   * Check the processing status of a report.
+   * Returns the report metadata including processingStatus and reportDocumentId (when DONE).
+   */
+  async getReportStatus(reportId: string): Promise<{
+    reportId: string;
+    processingStatus: string; // IN_QUEUE | IN_PROGRESS | DONE | CANCELLED | FATAL
+    reportDocumentId?: string;
+  }> {
+    return this.get<any>(`/reports/2021-06-30/reports/${reportId}`);
+  }
+
+  /**
+   * Poll a report until it finishes processing. Returns the reportDocumentId.
+   * Throws if the report fails or is cancelled.
+   */
+  async waitForReport(
+    reportId: string,
+    maxWaitMs: number = 5 * 60 * 1000
+  ): Promise<string> {
+    const startTime = Date.now();
+    let delayMs = 5000; // start with 5s, increase gradually
+
+    while (Date.now() - startTime < maxWaitMs) {
+      const status = await this.getReportStatus(reportId);
+
+      if (status.processingStatus === "DONE" && status.reportDocumentId) {
+        return status.reportDocumentId;
+      }
+
+      if (
+        status.processingStatus === "CANCELLED" ||
+        status.processingStatus === "FATAL"
+      ) {
+        throw new Error(
+          `Report ${reportId} failed with status: ${status.processingStatus}`
+        );
+      }
+
+      // Wait before polling again
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs = Math.min(delayMs * 1.5, 30000); // cap at 30s
+    }
+
+    throw new Error(
+      `Report ${reportId} did not complete within ${maxWaitMs / 1000}s`
+    );
+  }
+
+  /**
+   * Request, wait for, download, and parse a fulfilled-shipments report.
+   * Returns the raw flat-file text for parsing by the shipments parser.
+   */
+  async downloadShipmentReport(reportDocumentId: string): Promise<string> {
+    const doc = await this.getReportDocument(reportDocumentId);
+
+    const res = await fetch(doc.url);
+    if (!res.ok) {
+      throw new Error(
+        `Failed to download shipment report document (${res.status})`
+      );
+    }
+
+    return res.text();
+  }
+
+  // ──────────────────────────────────────────
   // Orders API
   // ──────────────────────────────────────────
 
