@@ -182,6 +182,7 @@ export default function AmazonShipmentsPage() {
   const [pullEndDate, setPullEndDate] = useState(() => {
     return new Date().toISOString().slice(0, 10);
   });
+  const [pullTimezone, setPullTimezone] = useState("America/Los_Angeles");
 
   async function handlePull() {
     setIsPulling(true);
@@ -196,6 +197,7 @@ export default function AmazonShipmentsPage() {
         body: JSON.stringify({
           startDate: pullStartDate,
           endDate: pullEndDate,
+          timezone: pullTimezone,
         }),
       });
 
@@ -392,6 +394,23 @@ export default function AmazonShipmentsPage() {
               className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               disabled={isPulling}
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Time Zone
+            </label>
+            <select
+              value={pullTimezone}
+              onChange={(e) => setPullTimezone(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              disabled={isPulling}
+            >
+              <option value="America/Los_Angeles">Pacific (PST/PDT)</option>
+              <option value="America/Denver">Mountain (MST/MDT)</option>
+              <option value="America/Chicago">Central (CST/CDT)</option>
+              <option value="America/New_York">Eastern (EST/EDT)</option>
+              <option value="UTC">UTC</option>
+            </select>
           </div>
           <button
             onClick={handlePull}
