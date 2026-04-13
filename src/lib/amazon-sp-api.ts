@@ -424,43 +424,6 @@ export class AmazonSpApiClient {
   }
 
   /**
-   * Poll a report until it finishes processing. Returns the reportDocumentId.
-   * Throws if the report fails or is cancelled.
-   */
-  async waitForReport(
-    reportId: string,
-    maxWaitMs: number = 5 * 60 * 1000
-  ): Promise<string> {
-    const startTime = Date.now();
-    let delayMs = 5000; // start with 5s, increase gradually
-
-    while (Date.now() - startTime < maxWaitMs) {
-      const status = await this.getReportStatus(reportId);
-
-      if (status.processingStatus === "DONE" && status.reportDocumentId) {
-        return status.reportDocumentId;
-      }
-
-      if (
-        status.processingStatus === "CANCELLED" ||
-        status.processingStatus === "FATAL"
-      ) {
-        throw new Error(
-          `Report ${reportId} failed with status: ${status.processingStatus}`
-        );
-      }
-
-      // Wait before polling again
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      delayMs = Math.min(delayMs * 1.5, 30000); // cap at 30s
-    }
-
-    throw new Error(
-      `Report ${reportId} did not complete within ${maxWaitMs / 1000}s`
-    );
-  }
-
-  /**
    * Request, wait for, download, and parse a fulfilled-shipments report.
    * Returns the raw flat-file text for parsing by the shipments parser.
    */

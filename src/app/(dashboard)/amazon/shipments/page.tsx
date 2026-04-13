@@ -183,15 +183,18 @@ export default function AmazonShipmentsPage() {
     return new Date().toISOString().slice(0, 10);
   });
   const [pullTimezone, setPullTimezone] = useState("America/Los_Angeles");
+  const [pullStatus, setPullStatus] = useState("");
 
   async function handlePull() {
     setIsPulling(true);
+    setPullStatus("Requesting report from Amazon...");
     setError("");
     setSuccess("");
     setUnmappedSkus([]);
 
     try {
-      const res = await fetch("/api/amazon/shipments/pull", {
+      // Step 1: Request the report
+      const startRes = await fetch("/api/amazon/shipments/pull", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -201,19 +204,84 @@ export default function AmazonShipmentsPage() {
         }),
       });
 
-      const data = await res.json();
+      const startData = await startRes.json();
+      if (!startRes.ok) {
+        setError(startData.error || "Failed to request report");
+        return;
+      }
 
-      if (!res.ok) {
-        setError(data.error || "Failed to pull shipment report");
+      const { reportId } = startData;
+
+      // Step 2: Poll until done
+      setPullStatus("Waiting for Amazon to generate report...");
+      let reportDocumentId: string | null = null;
+      let delayMs = 5000;
+      const maxWaitMs = 10 * 60 * 1000; // 10 minutes
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < maxWaitMs) {
+        await new Promise((r) => setTimeout(r, delayMs));
+
+        const statusRes = await fetch(
+          `/api/amazon/shipments/pull/status?reportId=${reportId}`
+        );
+        const statusData = await statusRes.json();
+
+        if (!statusRes.ok) {
+          setError(statusData.error || "Failed to check report status");
+          return;
+        }
+
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        setPullStatus(
+          `Waiting for Amazon to generate report... (${elapsed}s)`
+        );
+
+        if (statusData.processingStatus === "DONE" && statusData.reportDocumentId) {
+          reportDocumentId = statusData.reportDocumentId;
+          break;
+        }
+
+        if (
+          statusData.processingStatus === "CANCELLED" ||
+          statusData.processingStatus === "FATAL"
+        ) {
+          setError(`Amazon report failed with status: ${statusData.processingStatus}`);
+          return;
+        }
+
+        delayMs = Math.min(delayMs * 1.3, 15000); // gradual backoff, cap 15s
+      }
+
+      if (!reportDocumentId) {
+        setError("Report generation timed out. Try again or use a shorter date range.");
+        return;
+      }
+
+      // Step 3: Download, parse, and save
+      setPullStatus("Downloading and processing report...");
+      const completeRes = await fetch("/api/amazon/shipments/pull/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportDocumentId,
+          startDate: pullStartDate,
+          endDate: pullEndDate,
+        }),
+      });
+
+      const completeData = await completeRes.json();
+      if (!completeRes.ok) {
+        setError(completeData.error || "Failed to download report");
         return;
       }
 
       setSuccess(
-        `Pulled ${data.shipmentCount.toLocaleString()} shipments (${data.currency} ${data.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}) from Amazon.`
+        `Pulled ${completeData.shipmentCount.toLocaleString()} shipments (${completeData.currency} ${completeData.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}) from Amazon.`
       );
 
-      if (data.unmappedSkus?.length > 0) {
-        setUnmappedSkus(data.unmappedSkus);
+      if (completeData.unmappedSkus?.length > 0) {
+        setUnmappedSkus(completeData.unmappedSkus);
       }
 
       fetchSavedReports();
@@ -221,6 +289,7 @@ export default function AmazonShipmentsPage() {
       setError("Failed to pull shipment report from Amazon");
     } finally {
       setIsPulling(false);
+      setPullStatus("");
     }
   }
 
@@ -420,10 +489,9 @@ export default function AmazonShipmentsPage() {
             {isPulling ? "Pulling from Amazon..." : "Pull Shipments"}
           </button>
         </div>
-        {isPulling && (
+        {isPulling && pullStatus && (
           <p className="mt-3 text-xs text-gray-500">
-            Requesting report from Amazon and waiting for it to generate. This
-            may take a minute or two...
+            {pullStatus}
           </p>
         )}
       </div>
